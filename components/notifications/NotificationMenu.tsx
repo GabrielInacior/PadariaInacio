@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -18,10 +19,8 @@ import Animated, {
   withSpring,
   withTiming,
   interpolate,
+  useAnimatedScrollHandler,
 } from 'react-native-reanimated';
-
-// Componentes UI
-import { Card } from '../ui/Card';
 
 // Serviços e tipos
 import { notificationService } from '../../services/notifications/NotificationService';
@@ -29,7 +28,7 @@ import { authService } from '../../services/auth';
 import { Notificacao } from '../../types';
 
 // Theme
-import { colors, spacing, typography, radii } from '../../utils/theme';
+import { theme } from '../../utils/theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -50,6 +49,17 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({
 
   const badgeScale = useSharedValue(1);
   const modalOpacity = useSharedValue(0);
+  const modalTranslateY = useSharedValue(50);
+
+  // Scroll handler com useCallback para compatibilidade React 19
+  const scrollHandler = useCallback(
+    useAnimatedScrollHandler({
+      onScroll: (event) => {
+        // Scroll handling pode ser adicionado aqui se necessário
+      },
+    }),
+    []
+  );
 
   useEffect(() => {
     loadNotifications();
@@ -100,12 +110,14 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({
   const handleOpenModal = () => {
     setIsVisible(true);
     modalOpacity.value = withTiming(1, { duration: 300 });
+    modalTranslateY.value = withTiming(0, { duration: 300 });
     loadNotifications();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   const handleCloseModal = () => {
     modalOpacity.value = withTiming(0, { duration: 200 });
+    modalTranslateY.value = withTiming(50, { duration: 200 });
     setTimeout(() => setIsVisible(false), 200);
   };
 
@@ -247,7 +259,7 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({
           onPress={() => handleDeleteNotification(item.id)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="close" size={16} color={colors.neutral[400]} />
+          <Ionicons name="close" size={16} color={theme.colors.gray[400]} />
         </TouchableOpacity>
       </View>
 
@@ -262,15 +274,7 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({
 
   const modalAnimatedStyle = useAnimatedStyle(() => ({
     opacity: modalOpacity.value,
-    transform: [
-      {
-        translateY: interpolate(
-          modalOpacity.value,
-          [0, 1],
-          [50, 0]
-        ),
-      },
-    ],
+    transform: [{ translateY: modalTranslateY.value }],
   }));
 
   return (
@@ -281,7 +285,7 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({
         onPress={handleOpenModal}
         activeOpacity={0.7}
       >
-        <Ionicons name="notifications" size={24} color={colors.neutral[0]} />
+        <Ionicons name="notifications" size={24} color={theme.colors.white} />
         {unreadCount > 0 && (
           <Animated.View style={[styles.badge, badgeAnimatedStyle]}>
             <Text style={styles.badgeText}>
@@ -297,64 +301,65 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({
         animationType="none"
         transparent
         onRequestClose={handleCloseModal}
+        statusBarTranslucent
       >
         <View style={styles.modalOverlay}>
           <Animated.View style={[styles.modalContainer, modalAnimatedStyle]}>
-            <Card variant="elevated" style={styles.modalCard}>
-              <>
-                {/* Header do Modal */}
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Notificações</Text>
-                  <View style={styles.modalHeaderActions}>
-                    {unreadCount > 0 && (
-                      <TouchableOpacity
-                        style={styles.markAllButton}
-                        onPress={handleMarkAllAsRead}
-                      >
-                        <Text style={styles.markAllText}>Marcar todas como lidas</Text>
-                      </TouchableOpacity>
-                    )}
+            <View style={styles.modalCard}>
+              {/* Header do Modal */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Notificações</Text>
+                <View style={styles.modalHeaderActions}>
+                  {unreadCount > 0 && (
                     <TouchableOpacity
-                      style={styles.closeButton}
-                      onPress={handleCloseModal}
+                      style={styles.markAllButton}
+                      onPress={handleMarkAllAsRead}
                     >
-                      <Ionicons name="close" size={24} color={colors.neutral[600]} />
+                      <Text style={styles.markAllText}>Marcar todas como lidas</Text>
                     </TouchableOpacity>
-                  </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={handleCloseModal}
+                  >
+                    <Ionicons name="close" size={24} color={theme.colors.gray[600]} />
+                  </TouchableOpacity>
                 </View>
+              </View>
 
-                {/* Lista de Notificações */}
-                <FlatList
-                  data={notifications}
-                  renderItem={renderNotification}
-                  keyExtractor={(item) => item.id.toString()}
-                  style={styles.notificationsList}
-                  contentContainerStyle={styles.notificationsContent}
-                  showsVerticalScrollIndicator={false}
-                  refreshControl={
-                    <RefreshControl
-                      refreshing={refreshing}
-                      onRefresh={onRefresh}
-                      colors={[colors.primary[500]]}
-                      tintColor={colors.primary[500]}
+              {/* Lista de Notificações */}
+              <FlatList
+                data={notifications}
+                renderItem={renderNotification}
+                keyExtractor={(item) => item.id.toString()}
+                style={styles.notificationsList}
+                contentContainerStyle={styles.notificationsContent}
+                showsVerticalScrollIndicator={false}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={[theme.colors.primary[500]]}
+                    tintColor={theme.colors.primary[500]}
+                  />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Ionicons 
+                      name="notifications-off" 
+                      size={48} 
+                      color={theme.colors.gray[300]} 
                     />
-                  }
-                  ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                      <Ionicons 
-                        name="notifications-off" 
-                        size={48} 
-                        color={colors.neutral[300]} 
-                      />
-                      <Text style={styles.emptyTitle}>Nenhuma notificação</Text>
-                      <Text style={styles.emptySubtitle}>
-                        Você não tem notificações no momento
-                      </Text>
-                    </View>
-                  }
-                />
-              </>
-            </Card>
+                    <Text style={styles.emptyTitle}>Nenhuma notificação</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Você não tem notificações no momento
+                    </Text>
+                  </View>
+                }
+              />
+            </View>
           </Animated.View>
         </View>
       </Modal>
@@ -365,24 +370,26 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({
 const styles = StyleSheet.create({
   notificationButton: {
     position: 'relative',
-    padding: spacing[2],
+    padding: 8,
   },
   badge: {
     position: 'absolute',
-    top: spacing[1],
-    right: spacing[1],
-    backgroundColor: colors.error[500],
-    borderRadius: radii.full,
+    top: 4,
+    right: 4,
+    backgroundColor: theme.colors.red[500],
+    borderRadius: 12,
     minWidth: 18,
     height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing[1],
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: theme.colors.white,
   },
   badgeText: {
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.bold as any,
-    color: colors.neutral[0],
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.white,
     lineHeight: 12,
   },
   modalOverlay: {
@@ -390,7 +397,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing[4],
+    paddingHorizontal: 20,
   },
   modalContainer: {
     width: '100%',
@@ -398,55 +405,63 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   modalCard: {
-    margin: 0,
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: theme.colors.gray[200],
+    backgroundColor: theme.colors.white,
   },
   modalTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold as any,
-    color: colors.neutral[900],
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   modalHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
+    gap: 8,
   },
   markAllButton: {
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[1],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   markAllText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.primary[500],
-    fontWeight: typography.fontWeights.medium as any,
+    fontSize: 14,
+    color: theme.colors.primary[500],
+    fontWeight: '600',
   },
   closeButton: {
-    padding: spacing[1],
+    padding: 4,
   },
   notificationsList: {
     maxHeight: 400,
   },
   notificationsContent: {
-    paddingBottom: spacing[2],
+    paddingBottom: 8,
   },
   notificationItem: {
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: theme.colors.gray[100],
     position: 'relative',
+    backgroundColor: theme.colors.white,
   },
   notificationItemUnread: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: theme.colors.primary[50],
   },
   notificationHeader: {
     flexDirection: 'row',
@@ -455,10 +470,10 @@ const styles = StyleSheet.create({
   notificationIcon: {
     width: 40,
     height: 40,
-    borderRadius: radii.lg,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing[3],
+    marginRight: 12,
   },
   notificationContent: {
     flex: 1,
@@ -467,57 +482,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing[1],
+    marginBottom: 4,
   },
   notificationTitle: {
-    fontSize: typography.fontSizes.base,
-    fontWeight: typography.fontWeights.medium as any,
-    color: colors.neutral[700],
+    fontSize: 16,
+    fontWeight: '500',
+    color: theme.colors.gray[700],
     flex: 1,
-    marginRight: spacing[2],
+    marginRight: 8,
   },
   notificationTitleUnread: {
-    color: colors.neutral[900],
-    fontWeight: typography.fontWeights.semibold as any,
+    color: theme.colors.text,
+    fontWeight: '600',
   },
   notificationTime: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.neutral[500],
+    fontSize: 12,
+    color: theme.colors.gray[500],
   },
   notificationMessage: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[600],
+    fontSize: 14,
+    color: theme.colors.gray[600],
     lineHeight: 18,
   },
   deleteButton: {
-    padding: spacing[1],
-    marginLeft: spacing[2],
+    padding: 4,
+    marginLeft: 8,
   },
   unreadIndicator: {
     position: 'absolute',
-    left: spacing[2],
+    left: 8,
     top: '50%',
     marginTop: -4,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary[500],
+    backgroundColor: theme.colors.primary[500],
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: spacing[8],
-    paddingHorizontal: spacing[4],
+    paddingVertical: 60,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold as any,
-    color: colors.neutral[600],
-    marginTop: spacing[3],
-    marginBottom: spacing[1],
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.gray[500],
+    marginTop: 16,
+    marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral[500],
+    fontSize: 14,
+    color: theme.colors.gray[400],
     textAlign: 'center',
   },
 }); 

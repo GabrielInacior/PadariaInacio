@@ -82,13 +82,7 @@ const quickActions = [
     cor: colors.success[500],
     rota: '/admin/usuarios',
   },
-  {
-    id: 7,
-    titulo: 'Testar Notificações',
-    icone: 'notifications',
-    cor: colors.error[500],
-    rota: 'test-notifications',
-  },
+
 ];
 
 const alertasRecentes = [
@@ -214,9 +208,6 @@ const AdminDashboard: React.FC = () => {
       case '/admin/usuarios':
         router.push('/admin/usuarios');
         break;
-      case 'test-notifications':
-        createSampleNotifications();
-        break;
       default:
         Alert.alert('Navegação', `Ir para: ${rota}`);
     }
@@ -234,62 +225,111 @@ const AdminDashboard: React.FC = () => {
   // Criar notificações de exemplo para testar o sistema
   const createSampleNotifications = async () => {
     try {
-      // Notificações para Admin
-      await notificationService.createNotification(
-        1,
-        'pedido',
-        'Novo Pedido Recebido',
-        'Pedido #1234 no valor de R$ 87,50 aguarda confirmação.',
-        { pedido_id: 1234, valor: 87.50, action: 'view_order' }
-      );
+      console.log('🧪 Iniciando criação de notificações de teste...');
+      
+      // Buscar usuários reais do banco
+      const users = await databaseService.getUsuarios();
+      console.log(`📱 ${users.length} usuários encontrados no banco`);
+      
+      if (users.length === 0) {
+        Alert.alert('Aviso', 'Nenhum usuário encontrado no banco. Execute o seed primeiro.');
+        return;
+      }
 
-      await notificationService.createNotification(
-        1,
-        'estoque',
-        'Estoque Baixo',
-        'Pão Francês está com apenas 15 unidades em estoque.',
-        { produto: 'Pão Francês', quantidade: 15, action: 'view_stock' }
-      );
+      // Buscar usuários por tipo
+      const admins = users.filter(u => u.tipo === 'admin');
+      const clientes = users.filter(u => u.tipo === 'cliente');
+      const fornecedores = users.filter(u => u.tipo === 'fornecedor');
 
-      await notificationService.createNotification(
-        1,
-        'usuario',
-        'Novo Cliente Cadastrado',
-        'Maria Silva se cadastrou na plataforma.',
-        { user_type: 'cliente', nome: 'Maria Silva' }
-      );
+      console.log(`👑 ${admins.length} admins, 👥 ${clientes.length} clientes, 🏪 ${fornecedores.length} fornecedores`);
 
-      // Notificações para Cliente (ID 2)
-      await notificationService.createNotification(
-        2,
-        'promocao',
-        'Nova Promoção!',
-        'Desconto de 20% em todos os pães artesanais até domingo!',
-        { desconto: 20, categoria: 'paes' }
-      );
+      let notificationsCreated = 0;
 
-      await notificationService.createNotification(
-        2,
-        'pedido',
-        'Pedido Pronto!',
-        'Seu pedido #1235 está pronto para retirada.',
-        { pedido_id: 1235, status: 'pronto' }
-      );
+      // Notificações para Admins
+      for (const admin of admins.slice(0, 2)) { // Máximo 2 admins
+        await notificationService.createNotification(
+          admin.id,
+          'pedido',
+          'Novo Pedido Recebido',
+          `Pedido #${Math.floor(Math.random() * 9999)} no valor de R$ ${(Math.random() * 200 + 50).toFixed(2)} aguarda confirmação.`,
+          { pedido_id: Math.floor(Math.random() * 9999), valor: Math.random() * 200 + 50, action: 'view_order', test: true }
+        );
 
-      // Notificações para Fornecedor (ID 5)
-      await notificationService.createNotification(
-        5,
-        'pagamento',
-        'Pagamento Recebido',
-        'Você recebeu o pagamento de R$ 1.250,00.',
-        { valor: 1250.00, tipo: 'recebido' }
-      );
+        await notificationService.createNotification(
+          admin.id,
+          'estoque',
+          'Estoque Baixo',
+          'Pão Francês está com apenas 15 unidades em estoque.',
+          { produto: 'Pão Francês', quantidade: 15, action: 'view_stock', test: true }
+        );
 
+        await notificationService.createNotification(
+          admin.id,
+          'usuario',
+          'Novo Cliente Cadastrado',
+          'Maria Silva se cadastrou na plataforma.',
+          { user_type: 'cliente', nome: 'Maria Silva', test: true }
+        );
+
+        notificationsCreated += 3;
+      }
+
+      // Notificações para Clientes
+      for (const cliente of clientes.slice(0, 3)) { // Máximo 3 clientes
+        await notificationService.createNotification(
+          cliente.id,
+          'promocao',
+          'Nova Promoção!',
+          'Desconto de 20% em todos os pães artesanais até domingo!',
+          { desconto: 20, categoria: 'paes', test: true }
+        );
+
+        await notificationService.createNotification(
+          cliente.id,
+          'pedido',
+          'Pedido Pronto!',
+          `Seu pedido #${Math.floor(Math.random() * 9999)} está pronto para retirada.`,
+          { pedido_id: Math.floor(Math.random() * 9999), status: 'pronto', test: true }
+        );
+
+        notificationsCreated += 2;
+      }
+
+      // Notificações para Fornecedores
+      for (const fornecedor of fornecedores.slice(0, 2)) { // Máximo 2 fornecedores
+        await notificationService.createNotification(
+          fornecedor.id,
+          'pagamento',
+          'Pagamento Recebido',
+          `Você recebeu o pagamento de R$ ${(Math.random() * 2000 + 500).toFixed(2)}.`,
+          { valor: Math.random() * 2000 + 500, tipo: 'recebido', test: true }
+        );
+
+        await notificationService.createNotification(
+          fornecedor.id,
+          'produto',
+          'Produto Aprovado',
+          'Seu produto "Bolo de Chocolate" foi aprovado e já está disponível na loja.',
+          { produto: 'Bolo de Chocolate', aprovado: true, test: true }
+        );
+
+        notificationsCreated += 2;
+      }
+
+      console.log(`✅ ${notificationsCreated} notificações de teste criadas com sucesso!`);
+      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Sucesso', 'Notificações de exemplo criadas com sucesso!');
+      Alert.alert(
+        'Sucesso', 
+        `${notificationsCreated} notificações de exemplo criadas com sucesso!\n\n` +
+        `📊 Distribuição:\n` +
+        `• ${admins.length > 0 ? admins.slice(0, 2).length * 3 : 0} para admins\n` +
+        `• ${clientes.length > 0 ? clientes.slice(0, 3).length * 2 : 0} para clientes\n` +
+        `• ${fornecedores.length > 0 ? fornecedores.slice(0, 2).length * 2 : 0} para fornecedores`
+      );
     } catch (error) {
-      console.error('Erro ao criar notificações:', error);
-      Alert.alert('Erro', 'Não foi possível criar as notificações de exemplo');
+      console.error('❌ Erro ao criar notificações:', error);
+      Alert.alert('Erro', `Não foi possível criar as notificações de exemplo:\n${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -428,11 +468,22 @@ const AdminDashboard: React.FC = () => {
             <View style={styles.headerRight}>
               <NotificationMenu 
                 userType="admin"
-                onNotificationPress={(notification) => {
+                onNotificationPress={(notification: any) => {
                   console.log('Notificação pressionada:', notification);
                   // Aqui você pode implementar navegação específica
                 }}
               />
+              
+              {/* Botão discreto para testar notificações */}
+              <TouchableOpacity
+                style={[styles.headerButton, { opacity: 0.7 }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  createSampleNotifications();
+                }}
+              >
+                <Ionicons name="flask" size={20} color={colors.neutral[0]} />
+              </TouchableOpacity>
               
               <TouchableOpacity
                 style={styles.headerButton}
