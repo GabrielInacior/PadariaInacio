@@ -1,12 +1,13 @@
 {
   "expo": {
     "name": "PadariaInacio",
-    "slug": "PadariaInacio",
+    "slug": "padaria-inacio",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "padaria-inacio",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -23,7 +24,20 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-router",
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "aee0be53-a1ef-404f-999f-ef3cde1d43c8"
+      }
+    },
+    "owner": "inaciogamer2"
   }
 }
